@@ -1,4 +1,5 @@
-import { ChangeEvent, useMemo, useRef, useState } from 'react'
+import { Component, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, ErrorInfo, ReactNode } from 'react'
 import {
   Box,
   Brush,
@@ -36,6 +37,50 @@ import {
   ViewMode,
   WorkflowStage,
 } from './editorStore'
+
+type SceneStatus = 'loading' | 'ready' | 'error'
+
+function WebGLFallback() {
+  return (
+    <div className="webgl-fallback" role="alert">
+      <div className="fallback-figure" aria-hidden="true">
+        <span className="fallback-head" />
+        <span className="fallback-body" />
+        <span className="fallback-arm left" />
+        <span className="fallback-arm right" />
+        <span className="fallback-leg left" />
+        <span className="fallback-leg right" />
+      </div>
+      <div className="fallback-copy">
+        <strong>O visualizador 3D foi bloqueado</strong>
+        <span>Abra esta página diretamente no Chrome para habilitar o WebGL. Os painéis do editor continuam disponíveis.</span>
+        <button type="button" className="secondary-button" onClick={() => window.location.reload()}>
+          <RotateCcw size={17} /> Tentar novamente
+        </button>
+      </div>
+    </div>
+  )
+}
+
+class SceneErrorBoundary extends Component<
+  { children: ReactNode; onError: () => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Falha ao iniciar o visualizador 3D:', error, info)
+    this.props.onError()
+  }
+
+  render() {
+    return this.state.hasError ? <WebGLFallback /> : this.props.children
+  }
+}
 
 const stages: Array<{ label: WorkflowStage; icon: typeof Sparkles }> = [
   { label: 'Criar', icon: Sparkles },
@@ -341,6 +386,7 @@ export default function App() {
   const setImportedModel = useEditorStore((state) => state.setImportedModel)
   const [leftOpen, setLeftOpen] = useState(false)
   const [rightOpen, setRightOpen] = useState(false)
+  const [sceneStatus, setSceneStatus] = useState<SceneStatus>('loading')
 
   const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -366,8 +412,17 @@ export default function App() {
       <section className="workspace">
         <PartsPanel open={leftOpen} onClose={() => setLeftOpen(false)} />
         <div className="viewport-shell">
-          <EditorScene />
-          <div className="viewport-badge"><span className="live-dot" /> WebGL ativo</div>
+          <SceneErrorBoundary onError={() => setSceneStatus('error')}>
+            <EditorScene
+              onReady={() => setSceneStatus('ready')}
+              onContextLost={() => setSceneStatus('error')}
+            />
+          </SceneErrorBoundary>
+          {sceneStatus === 'error' && <WebGLFallback />}
+          <div className={`viewport-badge ${sceneStatus}`}>
+            <span className="live-dot" />
+            {sceneStatus === 'ready' ? 'WebGL ativo' : sceneStatus === 'error' ? 'Modo de compatibilidade' : 'Iniciando 3D…'}
+          </div>
           <div className="mobile-panel-buttons">
             <button type="button" onClick={() => setLeftOpen(true)}><PanelLeft size={19} /><span>Partes</span></button>
             <button type="button" onClick={() => setRightOpen(true)}><PanelRight size={19} /><span>Propriedades</span></button>
