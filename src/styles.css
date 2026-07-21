@@ -256,3 +256,57 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   .mobile-panel-buttons button { width: 35px; padding: 0; justify-content: center; }
   .tools-group button:nth-child(2), .tools-group button:nth-child(3) { opacity: .65; }
 }
+
+.viewport-badge.loading .live-dot {
+  background: #e3bd63;
+  box-shadow: 0 0 8px rgba(227, 189, 99, .65);
+}
+.viewport-badge.error .live-dot {
+  background: var(--danger);
+  box-shadow: 0 0 8px rgba(241, 124, 133, .65);
+}
+
+.webgl-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 28px;
+  background: radial-gradient(circle at 50% 38%, rgba(33, 103, 123, .18), transparent 35%), #07121d;
+  color: var(--text);
+}
+.fallback-copy {
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.fallback-copy strong { font-size: 17px; }
+.fallback-copy span { color: #91a8b3; font-size: 12px; line-height: 1.55; }
+.fallback-copy .secondary-button { margin-top: 5px; padding: 0 13px; }
+.fallback-figure {
+  position: relative;
+  width: 120px;
+  height: 245px;
+  flex: 0 0 auto;
+  opacity: .62;
+}
+.fallback-figure span { position: absolute; display: block; background: #67c8c5; border: 1px solid rgba(255,255,255,.2); }
+.fallback-head { width: 48px; height: 56px; left: 36px; top: 0; border-radius: 50%; }
+.fallback-body { width: 76px; height: 108px; left: 22px; top: 60px; border-radius: 28px 28px 20px 20px; }
+.fallback-arm { width: 23px; height: 112px; top: 67px; border-radius: 15px; }
+.fallback-arm.left { left: 0; transform: rotate(5deg); }
+.fallback-arm.right { right: 0; transform: rotate(-5deg); }
+.fallback-leg { width: 29px; height: 84px; top: 161px; border-radius: 12px; }
+.fallback-leg.left { left: 27px; }
+.fallback-leg.right { right: 27px; }
+
+@media (max-width: 720px) {
+  .webgl-fallback { flex-direction: column; gap: 18px; text-align: center; }
+  .fallback-figure { width: 78px; height: 160px; transform: scale(.65); transform-origin: center; margin: -30px 0; }
+  .fallback-copy { align-items: center; }
+}
