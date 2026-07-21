@@ -1,5 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, ThreeEvent, useThree } from '@react-three/fiber'
+import type { ReactNode } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
+import type { ThreeEvent } from '@react-three/fiber'
 import {
   Bounds,
   Center,
@@ -13,14 +15,15 @@ import {
 import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { PartSettings, useEditorStore } from './editorStore'
+import { useEditorStore } from './editorStore'
+import type { PartSettings } from './editorStore'
 
 interface PartMeshProps {
   partId: string
   position?: [number, number, number]
   rotation?: [number, number, number]
   scale?: [number, number, number]
-  children: React.ReactNode
+  children: ReactNode
 }
 
 function PartMesh({ partId, position, rotation, scale, children }: PartMeshProps) {
@@ -39,8 +42,6 @@ function PartMesh({ partId, position, rotation, scale, children }: PartMeshProps
       rotation={rotation}
       scale={scale}
       visible={part.visible}
-      castShadow
-      receiveShadow
       onPointerDown={(event) => {
         event.stopPropagation()
         selectPart(partId)
@@ -74,37 +75,37 @@ function DemoPatient() {
   return (
     <group name="MED3D_MODEL_ROOT" position={[0, -0.15, 0]}>
       <PartMesh partId="head" position={[0, 2.55, 0]}>
-        <sphereGeometry args={[0.5, 48, 32]} />
+        <sphereGeometry args={[0.5, 28, 20]} />
       </PartMesh>
       <PartMesh partId="neck" position={[0, 1.93, 0]}>
-        <cylinderGeometry args={[0.22, 0.27, 0.42, 32]} />
+        <cylinderGeometry args={[0.22, 0.27, 0.42, 20]} />
       </PartMesh>
       <PartMesh partId="gown" position={[0, 0.77, 0]}>
-        <cylinderGeometry args={[0.68, 0.98, 1.9, 48, 4, false]} />
+        <cylinderGeometry args={[0.68, 0.98, 1.9, 28, 2, false]} />
       </PartMesh>
       <PartMesh partId="left-arm" position={[-0.91, 0.93, 0]} rotation={[0, 0, -0.08]}>
-        <capsuleGeometry args={[0.17, 1.28, 8, 24]} />
+        <capsuleGeometry args={[0.17, 1.28, 5, 12]} />
       </PartMesh>
       <PartMesh partId="right-arm" position={[0.91, 0.93, 0]} rotation={[0, 0, 0.08]}>
-        <capsuleGeometry args={[0.17, 1.28, 8, 24]} />
+        <capsuleGeometry args={[0.17, 1.28, 5, 12]} />
       </PartMesh>
       <PartMesh partId="left-hand" position={[-0.99, -0.02, 0]} scale={[0.82, 1.15, 0.62]}>
-        <sphereGeometry args={[0.22, 32, 24]} />
+        <sphereGeometry args={[0.22, 20, 14]} />
       </PartMesh>
       <PartMesh partId="right-hand" position={[0.99, -0.02, 0]} scale={[0.82, 1.15, 0.62]}>
-        <sphereGeometry args={[0.22, 32, 24]} />
+        <sphereGeometry args={[0.22, 20, 14]} />
       </PartMesh>
       <PartMesh partId="left-leg" position={[-0.35, -1.16, 0]}>
-        <capsuleGeometry args={[0.23, 1.48, 8, 24]} />
+        <capsuleGeometry args={[0.23, 1.48, 5, 12]} />
       </PartMesh>
       <PartMesh partId="right-leg" position={[0.35, -1.16, 0]}>
-        <capsuleGeometry args={[0.23, 1.48, 8, 24]} />
+        <capsuleGeometry args={[0.23, 1.48, 5, 12]} />
       </PartMesh>
       <PartMesh partId="left-foot" position={[-0.35, -2.18, 0.16]} scale={[0.72, 0.38, 1.35]}>
-        <sphereGeometry args={[0.34, 32, 24]} />
+        <sphereGeometry args={[0.34, 20, 14]} />
       </PartMesh>
       <PartMesh partId="right-foot" position={[0.35, -2.18, 0.16]} scale={[0.72, 0.38, 1.35]}>
-        <sphereGeometry args={[0.34, 32, 24]} />
+        <sphereGeometry args={[0.34, 20, 14]} />
       </PartMesh>
     </group>
   )
@@ -142,8 +143,6 @@ function ImportedModel({ url }: { url: string }) {
         opacity: standard?.opacity ?? 1,
         source: 'imported',
       })
-      object.castShadow = true
-      object.receiveShadow = true
     })
 
     registerImportedParts(importedParts)
@@ -236,6 +235,27 @@ function SceneExporter() {
   return null
 }
 
+function ContextLossMonitor({ onContextLost }: { onContextLost: () => void }) {
+  const gl = useThree((state) => state.gl)
+
+  useEffect(() => {
+    const canvas = gl.domElement
+    const handleLoss = (event: Event) => {
+      event.preventDefault()
+      onContextLost()
+    }
+    canvas.addEventListener('webglcontextlost', handleLoss, false)
+    return () => canvas.removeEventListener('webglcontextlost', handleLoss, false)
+  }, [gl, onContextLost])
+
+  return null
+}
+
+function CanvasFallback({ onError }: { onError: () => void }) {
+  useEffect(() => onError(), [onError])
+  return null
+}
+
 function LoadingModel() {
   return (
     <Html center>
@@ -247,30 +267,37 @@ function LoadingModel() {
   )
 }
 
-export default function EditorScene() {
+export default function EditorScene({
+  onReady,
+  onContextLost,
+}: {
+  onReady: () => void
+  onContextLost: () => void
+}) {
   const modelMode = useEditorStore((state) => state.modelMode)
   const modelUrl = useEditorStore((state) => state.modelUrl)
   const selectPart = useEditorStore((state) => state.selectPart)
 
   return (
     <Canvas
-      shadows
-      dpr={[1, 1.8]}
+      dpr={1}
+      frameloop="demand"
+      fallback={<CanvasFallback onError={onContextLost} />}
       camera={{ position: [4.8, 2.6, 6.8], fov: 38, near: 0.1, far: 100 }}
-      gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true }}
+      gl={{
+        antialias: false,
+        alpha: false,
+        powerPreference: 'default',
+        preserveDrawingBuffer: false,
+        failIfMajorPerformanceCaveat: false,
+      }}
+      onCreated={onReady}
       onPointerMissed={() => selectPart('')}
     >
       <color attach="background" args={['#07121d']} />
       <fog attach="fog" args={['#07121d', 10, 24]} />
       <hemisphereLight intensity={1.3} color="#e9fbff" groundColor="#14202a" />
-      <directionalLight
-        castShadow
-        position={[4, 7, 5]}
-        intensity={3.2}
-        color="#e7f8ff"
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-      />
+      <directionalLight position={[4, 7, 5]} intensity={2.7} color="#e7f8ff" />
       <directionalLight position={[-5, 2, -3]} intensity={1.6} color="#58b6cf" />
       <spotLight position={[0, 6, -4]} intensity={1.5} angle={0.7} penumbra={1} color="#ffffff" />
 
@@ -284,7 +311,7 @@ export default function EditorScene() {
 
       <Grid
         position={[0, -2.62, 0]}
-        args={[16, 16]}
+        args={[10, 10]}
         cellSize={0.25}
         cellThickness={0.6}
         cellColor="#1b4658"
@@ -293,13 +320,13 @@ export default function EditorScene() {
         sectionColor="#31718a"
         fadeDistance={14}
         fadeStrength={1}
-        infiniteGrid
       />
-      <OrbitControls makeDefault enableDamping dampingFactor={0.08} minDistance={2.5} maxDistance={16} />
+      <OrbitControls makeDefault enableDamping={false} minDistance={2.5} maxDistance={16} />
       <GizmoHelper alignment="bottom-right" margin={[72, 72]}>
         <GizmoViewport axisColors={['#ef6b73', '#79d68f', '#6daaf3']} labelColor="#eef8fc" />
       </GizmoHelper>
       <CameraReset />
+      <ContextLossMonitor onContextLost={onContextLost} />
       <SceneExporter />
     </Canvas>
   )
